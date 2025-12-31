@@ -85,12 +85,15 @@ export default function Header() {
             >
               How It Works
             </button>
-            <button
-              onClick={() => scrollToSection("pricing")}
-              className="text-sm font-medium text-gray-700 hover:text-violet-600 transition-colors"
+            <Link
+              href="/pricing"
+              className={`text-sm font-medium transition-colors ${isActive("/pricing")
+                ? "text-violet-600 font-semibold"
+                : "text-gray-700 hover:text-violet-600"
+                }`}
             >
               Pricing
-            </button>
+            </Link>
             <button
               onClick={() => scrollToSection("faq")}
               className="text-sm font-medium text-gray-700 hover:text-violet-600 transition-colors"
