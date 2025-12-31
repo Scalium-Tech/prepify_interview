@@ -58,15 +58,12 @@ export default function Header() {
     <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-sm border-b border-gray-200 shadow-sm">
       <div className="max-w-7xl mx-auto px-6 py-4">
         <div className="flex items-center justify-between">
-          <Link href="/" className="flex items-center space-x-3 hover:opacity-90 transition-opacity">
+          <Link href="/" className="flex items-center hover:opacity-90 transition-opacity">
             <img
               src="/preply_logo.png"
-              alt="Preply Logo"
-              className="w-12 h-12 rounded-xl shadow-md"
+              alt="Preply"
+              className="h-12 w-auto"
             />
-            <span className="text-2xl font-bold bg-gradient-to-r from-violet-600 to-purple-600 bg-clip-text text-transparent">
-              Preply
-            </span>
           </Link>
 
           <nav className="hidden md:flex items-center space-x-8">
