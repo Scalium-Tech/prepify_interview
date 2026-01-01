@@ -21,10 +21,27 @@ export default function UpdatePasswordPage() {
     const [isLinkExpired, setIsLinkExpired] = useState(false);
 
     useEffect(() => {
-        // Check for error parameters in the URL (passed from callback)
-        const errorParam = searchParams.get("error");
-        const errorDescription = searchParams.get("error_description");
-        const errorCode = searchParams.get("error_code");
+        // Function to parse hash parameters
+        const getHashParams = () => {
+            const hash = window.location.hash.substring(1);
+            const params = new URLSearchParams(hash);
+            return {
+                error: params.get("error"),
+                error_description: params.get("error_description"),
+                error_code: params.get("error_code")
+            };
+        };
+
+        // Check for error parameters in the URL (query params or hash)
+        const queryErrorParam = searchParams.get("error");
+        const queryErrorCode = searchParams.get("error_code");
+        const queryErrorDescription = searchParams.get("error_description");
+
+        const hashParams = getHashParams();
+
+        const errorParam = queryErrorParam || hashParams.error;
+        const errorCode = queryErrorCode || hashParams.error_code;
+        const errorDescription = queryErrorDescription || hashParams.error_description?.replace(/\+/g, ' ');
 
         if (errorParam || errorCode === "otp_expired") {
             setError(errorDescription || "Your password reset link is invalid or has expired.");

@@ -53,6 +53,19 @@ export async function GET(request: NextRequest) {
         }
     }
 
-    // Return to login with error
-    return NextResponse.redirect(`${origin}/login?error=auth_callback_failed`);
+    // If no code is present, check for error parameters
+    const error = searchParams.get("error");
+    const errorCode = searchParams.get("error_code");
+    const errorDescription = searchParams.get("error_description");
+
+    if (error || errorCode) {
+        return NextResponse.redirect(
+            `${origin}${next}?error=${error || 'access_denied'}&error_code=${errorCode || ''}&error_description=${encodeURIComponent(errorDescription || '')}`
+        );
+    }
+
+    // Check if we have a hash-based error implies by the client (not visible here, but browser preserves hash on redirect)
+    // Or just a direct visit. We redirect to `next` so the client page can handle the hash or show a default state.
+    // If we redirected to login, we would lose the context of "Reset Password".
+    return NextResponse.redirect(`${origin}${next}`);
 }
