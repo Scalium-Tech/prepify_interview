@@ -46,10 +46,10 @@ export async function GET(request: NextRequest) {
             }
         } else {
             console.error("Auth callback error:", error);
-            // If it's a password recovery flow that failed, try to give a meaningful error
-            if (searchParams.get("type") === "recovery") {
-                return NextResponse.redirect(`${origin}/forgot-password?error=recovery_failed`);
-            }
+            // If the code exchange fails (e.g., OTP expired), redirect to the next page (update-password)
+            // with the error details so we can show a "Link Expired" message there.
+            // Do NOT redirect to login, as that confuses the user context.
+            return NextResponse.redirect(`${origin}${next}?error=access_denied&error_code=${error.code || 'otp_expired'}&error_description=${encodeURIComponent(error.message)}`);
         }
     }
 

@@ -1,13 +1,16 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
-import { MoveLeft, CheckCircle, AlertCircle, Lock } from "lucide-react";
+import { MoveLeft, CheckCircle, AlertCircle, Lock, RefreshCw, ArrowRight } from "lucide-react";
 import Link from "next/link";
+import { AuthError } from "@supabase/supabase-js";
 
 export default function UpdatePasswordPage() {
     const router = useRouter();
+    const searchParams = useSearchParams();
+
     const [email, setEmail] = useState<string | null>(null);
     const [password, setPassword] = useState("");
     const [confirmPassword, setConfirmPassword] = useState("");
@@ -15,25 +18,60 @@ export default function UpdatePasswordPage() {
     const [updating, setUpdating] = useState(false);
     const [error, setError] = useState("");
     const [success, setSuccess] = useState(false);
+    const [isLinkExpired, setIsLinkExpired] = useState(false);
 
     useEffect(() => {
-        const getUser = async () => {
-            const { data: { user }, error } = await supabase.auth.getUser();
+        // Check for error parameters in the URL (passed from callback)
+        const errorParam = searchParams.get("error");
+        const errorDescription = searchParams.get("error_description");
+        const errorCode = searchParams.get("error_code");
 
-            if (error || !user) {
-                // If no user, it means the link is invalid or expired
-                // Redirecting to login after a short delay or showing error
-                setError("Invalid or expired password reset link. Please try again.");
-                setLoading(false);
-                return;
-            }
-
-            setEmail(user.email || null);
+        if (errorParam || errorCode === "otp_expired") {
+            setError(errorDescription || "Your password reset link is invalid or has expired.");
+            setIsLinkExpired(true);
             setLoading(false);
+            return;
+        }
+
+        const checkSession = async () => {
+            const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+
+            if (session?.user) {
+                setEmail(session.user.email || null);
+                setLoading(false);
+            } else {
+                // No session found on load. 
+                // We'll wait a brief moment for onAuthStateChange to potentially fire,
+                // but if not, we might assume direct access without a valid session.
+                const { data: { user }, error: userError } = await supabase.auth.getUser();
+                if (user) {
+                    setEmail(user.email || null);
+                    setLoading(false);
+                } else {
+                    // If we are here, it likely means the flow is broken or direct access
+                    // We don't error immediately to allow the onAuthStateChange listener to work
+                }
+            }
         };
 
-        getUser();
-    }, []);
+        checkSession();
+
+        const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
+            console.log("Auth state change:", event);
+            if (event === "PASSWORD_RECOVERY" || event === "SIGNED_IN") {
+                if (session?.user) {
+                    setEmail(session.user.email || null);
+                    setError("");
+                    setIsLinkExpired(false);
+                    setLoading(false);
+                }
+            }
+        });
+
+        return () => {
+            authListener.subscription.unsubscribe();
+        };
+    }, [searchParams]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -67,7 +105,7 @@ export default function UpdatePasswordPage() {
 
             // Optional: Redirect after a few seconds
             setTimeout(() => {
-                router.push("/login");
+                router.push("/login?password_updated=true");
             }, 3000);
 
         } catch (err) {
@@ -78,7 +116,7 @@ export default function UpdatePasswordPage() {
 
     if (loading) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-gray-50">
+            <div className="min-h-screen flex items-center justify-center bg-white">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-violet-600"></div>
             </div>
         );
@@ -95,13 +133,30 @@ export default function UpdatePasswordPage() {
                             </div>
                             <h2 className="text-2xl font-bold text-gray-900 mb-2">Password Set!</h2>
                             <p className="text-gray-600 mb-6">
-                                Your password has been successfully updated. You can now login with your new password.
+                                Your password has been successfully updated. You can now login.
                             </p>
                             <Link
                                 href="/login"
                                 className="inline-block w-full py-3 px-4 bg-violet-600 text-white rounded-xl font-semibold hover:bg-violet-700 transition-colors shadow-md"
                             >
                                 Go to Login
+                            </Link>
+                        </div>
+                    ) : isLinkExpired ? (
+                        <div className="text-center py-6">
+                            <div className="w-16 h-16 bg-orange-100 text-orange-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                                <AlertCircle className="w-8 h-8" />
+                            </div>
+                            <h2 className="text-2xl font-bold text-gray-900 mb-2">Link Expired</h2>
+                            <p className="text-gray-600 mb-6">
+                                This password reset link is invalid or has expired. Please request a new one.
+                            </p>
+                            <Link
+                                href="/forgot-password"
+                                className="inline-flex items-center justify-center w-full py-3 px-4 bg-violet-600 text-white rounded-xl font-semibold hover:bg-violet-700 transition-colors shadow-md"
+                            >
+                                Request New Link
+                                <ArrowRight className="w-4 h-4 ml-2" />
                             </Link>
                         </div>
                     ) : (
@@ -112,7 +167,11 @@ export default function UpdatePasswordPage() {
                                 </div>
                                 <h1 className="text-2xl font-bold text-gray-900 mb-2">Set New Password</h1>
                                 <p className="text-gray-600">
-                                    Create a new password for your account
+                                    {email ? (
+                                        <>for <span className="font-medium text-gray-900">{email}</span></>
+                                    ) : (
+                                        "Create a new password for your account"
+                                    )}
                                 </p>
                             </div>
 
