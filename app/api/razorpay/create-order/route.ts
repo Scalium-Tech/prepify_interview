@@ -4,8 +4,8 @@ import { createClient } from "@supabase/supabase-js";
 
 // Pricing configuration (amounts in paise)
 const PRICING = {
-    monthly: { amount: 79900, duration: 1 }, // ₹799 = 79900 paise, 1 month
-    yearly: { amount: 729900, duration: 12 }, // ₹7,299 = 729900 paise, 12 months
+    monthly: { amount: 100, duration: 1 }, // ₹1 = 100 paise, 1 month
+    yearly: { amount: 200, duration: 12 }, // ₹2 = 200 paise, 12 months
 };
 
 export async function POST(request: NextRequest) {

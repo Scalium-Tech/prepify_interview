@@ -38,10 +38,9 @@ const PRO_FEATURES: PlanFeature[] = [
     { text: "Interview history", included: true },
 ];
 
-// Pricing as per user requirements: ₹799/month, ₹7,299/year
 const PRO_PRICING = {
-    monthly: { amount: 79900, display: 799, period: "/month", billingCycle: "monthly" as const },
-    yearly: { amount: 729900, display: "7,299", period: "/year", billingCycle: "yearly" as const },
+    monthly: { amount: 100, display: "1", period: "/month", billingCycle: "monthly" as const },
+    yearly: { amount: 200, display: "2", period: "/year", billingCycle: "yearly" as const },
 };
 
 export default function PricingPage() {

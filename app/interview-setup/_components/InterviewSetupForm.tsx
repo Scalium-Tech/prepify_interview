@@ -51,7 +51,7 @@ const DIFFICULTIES = [
 
 export function InterviewSetupForm() {
     const router = useRouter();
-    const { setup, setSetup, setQuestions } = useInterview();
+    const { setup, setSetup, setQuestions, setAnswers, setReport } = useInterview();
     const [isGenerating, setIsGenerating] = useState(false);
 
     const updateCategory = (id: string) => setSetup(prev => ({ ...prev, category: id }));
@@ -61,6 +61,10 @@ export function InterviewSetupForm() {
     const handleStartSimulation = async () => {
         setIsGenerating(true);
         console.log("Starting simulation with setup:", setup); // Debug log
+
+        // Clear old interview data before starting new one
+        setAnswers([]);
+        setReport(null);
 
         // Validation
         if (!setup.resumeText && !setup.jobDescription) {

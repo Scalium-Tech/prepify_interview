@@ -51,6 +51,7 @@ export default function DashboardPage() {
   const [userEmail, setUserEmail] = useState("");
   const [fullName, setFullName] = useState("");
   const [interviews, setInterviews] = useState<Interview[]>([]);
+  const [cachedAnalytics, setCachedAnalytics] = useState<any>(null);
 
   // Modal States
   const [isScriptOpen, setIsScriptOpen] = useState(false);
@@ -76,7 +77,7 @@ export default function DashboardPage() {
       setUserEmail(user.email || "");
 
       const { supabase } = await import("@/lib/supabase");
-      const [profileResult, interviewResult] = await Promise.all([
+      const [profileResult, interviewResult, analyticsResult] = await Promise.all([
         supabase
           .from("profiles")
           .select("full_name")
@@ -85,11 +86,17 @@ export default function DashboardPage() {
         supabase
           .from("interviews")
           .select("*")
-          .order("created_at", { ascending: true })
+          .order("created_at", { ascending: true }),
+        supabase
+          .from("user_analytics")
+          .select("*")
+          .eq("user_id", user.id)
+          .single()
       ]);
 
       if (profileResult.data) setFullName(profileResult.data.full_name || "");
       if (interviewResult.data) setInterviews(interviewResult.data as Interview[]);
+      if (analyticsResult.data) setCachedAnalytics(analyticsResult.data);
 
       setLoading(false);
     };
@@ -97,8 +104,34 @@ export default function DashboardPage() {
     loadDashboard();
   }, [user, authLoading, subLoading, isPro, router]);
 
-  // Calculate analytics
+  // Calculate analytics - use cached data if available, otherwise compute
   const analytics = useMemo(() => {
+    // If we have cached analytics from user_analytics table, use it
+    if (cachedAnalytics) {
+      // Transform cached data to match the expected format
+      const categoryData = Object.entries(cachedAnalytics.category_stats || {}).map(
+        ([category, stats]: [string, any]) => ({
+          category: category.charAt(0).toUpperCase() + category.slice(1),
+          avgScore: stats.avgScore,
+          count: stats.count,
+        })
+      );
+
+      return {
+        totalInterviews: cachedAnalytics.total_interviews,
+        avgScore: cachedAnalytics.avg_score,
+        bestScore: cachedAnalytics.best_score,
+        latestScore: cachedAnalytics.latest_score,
+        improvement: cachedAnalytics.score_improvement,
+        categoryData,
+        topStrengths: cachedAnalytics.top_strengths || [],
+        topWeaknesses: cachedAnalytics.top_weaknesses || [],
+        streak: cachedAnalytics.current_streak,
+        proTip: cachedAnalytics.pro_tip,
+      };
+    }
+
+    // Fallback: compute from interviews if no cached data
     if (interviews.length === 0) return null;
 
     const totalInterviews = interviews.length;
@@ -183,7 +216,7 @@ export default function DashboardPage() {
       topWeaknesses,
       streak,
     };
-  }, [interviews]);
+  }, [interviews, cachedAnalytics]);
 
   const handleSignOut = async () => {
     await signOut();
@@ -393,7 +426,7 @@ export default function DashboardPage() {
               </div>
               <p className="text-sm text-gray-500 mb-4">Based on feedback across all interviews</p>
               <ul className="space-y-3">
-                {analytics.topStrengths.map((strength, i) => (
+                {analytics.topStrengths.map((strength: string, i: number) => (
                   <li key={i} className="flex items-start gap-3 text-gray-700">
                     <span className="w-6 h-6 bg-green-100 text-green-600 rounded-full flex items-center justify-center text-xs font-bold shrink-0">
                       {i + 1}
@@ -421,7 +454,7 @@ export default function DashboardPage() {
               </div>
               <p className="text-sm text-gray-500 mb-4">Recurring areas that need attention</p>
               <ul className="space-y-3">
-                {analytics.topWeaknesses.map((weakness, i) => (
+                {analytics.topWeaknesses.map((weakness: string, i: number) => (
                   <li key={i} className="flex items-start gap-3 text-gray-700">
                     <span className="w-6 h-6 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center text-xs font-bold shrink-0">
                       {i + 1}

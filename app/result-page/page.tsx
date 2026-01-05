@@ -82,6 +82,11 @@ export default function InterviewResultsPage() {
                         alert(`Error saving result: ${error.message}`);
                     } else {
                         console.log("Supabase Insert Success:", insertData);
+
+                        // Update cached dashboard analytics
+                        const { updateUserAnalytics } = await import("@/lib/updateUserAnalytics");
+                        await updateUserAnalytics(supabase, session.user.id);
+
                         // Refresh subscription data to update interview count
                         // This ensures the home page shows updated button text immediately
                         await refreshSubscription();

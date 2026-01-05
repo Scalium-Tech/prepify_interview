@@ -1,11 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
-const genAI = new GoogleGenerativeAI(process.env.NEXT_PUBLIC_GEMINI_API_KEY || "");
+const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY || process.env.GEMINI_API_KEY || "";
+const genAI = new GoogleGenerativeAI(apiKey);
 
 export async function POST(req: NextRequest) {
     try {
+        // Validate API key
+        if (!apiKey) {
+            console.error("Gemini API key is not configured");
+            return NextResponse.json(
+                { error: "AI service not configured. Please contact support." },
+                { status: 503 }
+            );
+        }
+
         const { questions, answers, category, difficulty } = await req.json();
+        console.log("Generating report for:", { category, difficulty, questionsCount: questions?.length });
 
         const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-exp" });
 
@@ -62,15 +73,18 @@ Do not include markdown formatting. Return only the raw JSON.
 
         const result = await model.generateContent(prompt);
         const responseText = result.response.text();
+        console.log("Gemini response received, length:", responseText.length);
+
         const cleanedText = responseText.replace(/```json/g, "").replace(/```/g, "").trim();
 
         const report = JSON.parse(cleanedText);
+        console.log("Report generated successfully, score:", report.score);
 
         return NextResponse.json(report);
-    } catch (error) {
-        console.error("Error generating report:", error);
+    } catch (error: any) {
+        console.error("Error generating report:", error.message || error);
         return NextResponse.json(
-            { error: "Failed to generate report" },
+            { error: `Failed to generate report: ${error.message || "Unknown error"}` },
             { status: 500 }
         );
     }
