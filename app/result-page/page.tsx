@@ -12,7 +12,7 @@ import { cn } from "@/lib/utils";
 export default function InterviewResultsPage() {
     const router = useRouter();
     const { questions, answers, setup, report, setReport, resetInterview } = useInterview();
-    const { isPro, loading: subLoading } = useSubscription();
+    const { isPro, loading: subLoading, refreshSubscription } = useSubscription();
     const [isLoading, setIsLoading] = useState(true);
     const processedRef = useRef(false);
 
@@ -82,6 +82,9 @@ export default function InterviewResultsPage() {
                         alert(`Error saving result: ${error.message}`);
                     } else {
                         console.log("Supabase Insert Success:", insertData);
+                        // Refresh subscription data to update interview count
+                        // This ensures the home page shows updated button text immediately
+                        await refreshSubscription();
                     }
                 } else {
                     console.error("No active session found for saving.");
