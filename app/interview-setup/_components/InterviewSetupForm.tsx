@@ -54,7 +54,7 @@ const DIFFICULTIES = [
 export function InterviewSetupForm() {
     const router = useRouter();
     const { user } = useAuth();
-    const { setup, setSetup, setQuestions, setAnswers, setReport, resumeFile, setResumeId } = useInterview();
+    const { setup, setSetup, setQuestions, setAnswers, setReport, resumeFile, setResumeId, resumeSourceUrl } = useInterview();
     const [isGenerating, setIsGenerating] = useState(false);
 
     const updateCategory = (id: string) => setSetup(prev => ({ ...prev, category: id }));
@@ -92,7 +92,14 @@ export function InterviewSetupForm() {
                     console.error("Resume Upload Error:", uploadError);
                     // Continue without saving resume to DB if upload fails
                 } else if (uploadData) {
-                    console.log("Resume uploaded:", uploadData);
+                    console.log("Resume uploaded to storage:", uploadData);
+
+                    // Debug Log: Check what we are trying to insert
+                    console.log("Inserting Resume into DB...", {
+                        fileName: resumeFile.name,
+                        sourceUrl: resumeSourceUrl,
+                        hasSourceUrl: !!resumeSourceUrl
+                    });
 
                     // Insert into resumes table
                     const { data: resumeData, error: dbError } = await supabase
@@ -103,7 +110,8 @@ export function InterviewSetupForm() {
                             file_path: uploadData.path,
                             file_type: resumeFile.type,
                             file_size_bytes: resumeFile.size,
-                            extracted_text: setup.resumeText || ""
+                            extracted_text: setup.resumeText || "",
+                            source_url: resumeSourceUrl // Save the source URL (can be null)
                         })
                         .select()
                         .single();

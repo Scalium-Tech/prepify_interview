@@ -13,12 +13,13 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'),
   title: 'Preply - AI Interview Practice',
   description: 'Practice interviews with AI-powered feedback',
   openGraph: {
     images: [
       {
-        url: 'https://bolt.new/static/og_default.png',
+        url: '/og_default.png',
       },
     ],
   },
@@ -26,7 +27,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     images: [
       {
-        url: 'https://bolt.new/static/og_default.png',
+        url: '/og_default.png',
       },
     ],
   },
@@ -69,5 +70,3 @@ export default function RootLayout({
     </html>
   );
 }
-
-

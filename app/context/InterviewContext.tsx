@@ -50,8 +50,12 @@ interface InterviewContextType {
     setResumeFile: React.Dispatch<React.SetStateAction<File | null>>;
     resumeId: string | null;
     setResumeId: React.Dispatch<React.SetStateAction<string | null>>;
+    resumeSourceUrl: string | null;
+    setResumeSourceUrl: React.Dispatch<React.SetStateAction<string | null>>;
+    isLoaded: boolean;
     resetInterview: () => void;
 }
+
 
 const InterviewContext = createContext<InterviewContextType | undefined>(undefined);
 
@@ -69,6 +73,8 @@ export function InterviewProvider({ children }: { children: ReactNode }) {
     const [report, setReport] = useState<InterviewReport | null>(null);
     const [resumeFile, setResumeFile] = useState<File | null>(null);
     const [resumeId, setResumeId] = useState<string | null>(null);
+    const [resumeSourceUrl, setResumeSourceUrl] = useState<string | null>(null);
+    const [isLoaded, setIsLoaded] = useState(false);
 
     const resetInterview = () => {
         setSetup({
@@ -83,6 +89,7 @@ export function InterviewProvider({ children }: { children: ReactNode }) {
         setReport(null);
         setResumeFile(null);
         setResumeId(null);
+        setResumeSourceUrl(null);
         if (typeof window !== "undefined") {
             localStorage.removeItem("interview_state");
         }
@@ -100,10 +107,14 @@ export function InterviewProvider({ children }: { children: ReactNode }) {
                     if (parsed.answers) setAnswers(parsed.answers);
                     if (parsed.report) setReport(parsed.report);
                     if (parsed.resumeId) setResumeId(parsed.resumeId);
+                    if (parsed.resumeSourceUrl) setResumeSourceUrl(parsed.resumeSourceUrl);
                 } catch (e) {
                     console.error("Failed to parse interview state", e);
                 }
             }
+            setIsLoaded(true);
+        } else {
+            setIsLoaded(true);
         }
     }, []);
 
@@ -115,12 +126,13 @@ export function InterviewProvider({ children }: { children: ReactNode }) {
                 questions,
                 answers,
                 report,
-                resumeId
+                resumeId,
+                resumeSourceUrl
                 // We do not save resumeFile as it is not serializable
             };
             localStorage.setItem("interview_state", JSON.stringify(stateToSave));
         }
-    }, [setup, questions, answers, report, resumeId]);
+    }, [setup, questions, answers, report, resumeId, resumeSourceUrl]);
 
     const value = React.useMemo(() => ({
         setup,
@@ -135,8 +147,11 @@ export function InterviewProvider({ children }: { children: ReactNode }) {
         setResumeFile,
         resumeId,
         setResumeId,
+        resumeSourceUrl,
+        setResumeSourceUrl,
+        isLoaded,
         resetInterview,
-    }), [setup, questions, answers, report, resumeFile, resumeId]);
+    }), [setup, questions, answers, report, resumeFile, resumeId, resumeSourceUrl, isLoaded]);
 
     return (
         <InterviewContext.Provider value={value}>

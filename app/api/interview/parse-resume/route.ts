@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { parseResumeFile } from "@/lib/resume-parser";
 
 export async function POST(req: NextRequest) {
     try {
@@ -10,45 +11,21 @@ export async function POST(req: NextRequest) {
         }
 
         const buffer = Buffer.from(await file.arrayBuffer());
-        let text = "";
 
-        if (file.type === "application/pdf") {
-            const pdfModule = (await import("pdf-parse-new")) as any;
-            const pdf = pdfModule.default || pdfModule;
-            const data = await pdf(buffer);
-            text = data.text;
-        } else if (
-            file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-        ) {
-            const mammoth = (await import("mammoth")).default || (await import("mammoth"));
-            const result = await mammoth.extractRawText({ buffer });
-            text = result.value;
-        } else if (file.type === "application/msword") {
+        try {
+            const text = await parseResumeFile(buffer, file.type, file.name);
+            return NextResponse.json({ text });
+        } catch (parseError: any) {
             return NextResponse.json(
-                { error: "Legacy Word documents (.doc) are not supported. Please convert to .docx or .pdf." },
-                { status: 400 }
-            );
-        } else if (file.type === "text/plain") {
-            text = await file.text();
-        } else {
-            return NextResponse.json(
-                { error: "Unsupported file type. Please upload PDF, DOCX, or TXT." },
+                { error: parseError.message || "Failed to parse resume content." },
                 { status: 400 }
             );
         }
 
-        // Basic cleaning
-        text = text.replace(/\s+/g, " ").trim();
-
-        if (!text) {
-            return NextResponse.json({ error: "Could not extract text from file." }, { status: 400 });
-        }
-
-        return NextResponse.json({ text });
     } catch (error) {
-        console.error("Error parsing resume:", error);
+        console.error("Error processing resume request:", error);
         return NextResponse.json(
-            { error: "Failed to parse resume. Ensure the file is valid." },
+            { error: "Internal Server Error" },
             { status: 500 }
         );
     }

@@ -11,12 +11,14 @@ import { cn } from "@/lib/utils";
 
 export default function InterviewResultsPage() {
     const router = useRouter();
-    const { questions, answers, setup, report, setReport, resetInterview, resumeId } = useInterview();
+    const { questions, answers, setup, report, setReport, resetInterview, resumeId, isLoaded } = useInterview();
     const { isPro, loading: subLoading, refreshSubscription } = useSubscription();
     const [isLoading, setIsLoading] = useState(true);
     const processedRef = useRef(false);
 
     useEffect(() => {
+        if (!isLoaded) return; // Wait for hydration
+
         if (!questions.length || !answers.length) {
             router.push("/interview-setup");
             return;
@@ -124,7 +126,7 @@ export default function InterviewResultsPage() {
         };
 
         processResult();
-    }, [questions, answers, report, setup, router, setReport]);
+    }, [questions, answers, report, setup, router, setReport, isLoaded]);
 
     const handleRestart = () => {
         // Check if user has a paid subscription

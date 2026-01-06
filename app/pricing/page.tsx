@@ -7,6 +7,7 @@ import { useSubscription } from "@/app/context/SubscriptionContext";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { Check, X, Sparkles, Crown, Loader2 } from "lucide-react";
+import { toast } from "sonner"; // Assuming sonner is used as per project convention linked in Resume component
 
 declare global {
     interface Window {
@@ -96,7 +97,7 @@ export default function PricingPage() {
         try {
             const scriptLoaded = await loadRazorpayScript();
             if (!scriptLoaded) {
-                alert("Failed to load payment gateway. Please try again.");
+                toast.error("Failed to load payment gateway. Please try again.");
                 setProcessingPlan(null);
                 return;
             }
@@ -113,7 +114,7 @@ export default function PricingPage() {
             const orderData = await orderResponse.json();
 
             if (!orderData.orderId) {
-                alert(orderData.error || "Failed to create order. Please try again.");
+                toast.error(orderData.error || "Failed to create order. Please try again.");
                 setProcessingPlan(null);
                 return;
             }
@@ -141,9 +142,10 @@ export default function PricingPage() {
                     const verifyData = await verifyResponse.json();
 
                     if (verifyData.success) {
+                        toast.success("Payment successful! Welcome to Pro.");
                         router.push("/dashboard?payment=success");
                     } else {
-                        alert("Payment verification failed. Please contact support.");
+                        toast.error("Payment verification failed. Please contact support.");
                     }
                     setProcessingPlan(null);
                 },
@@ -164,7 +166,7 @@ export default function PricingPage() {
             razorpay.open();
         } catch (error) {
             console.error("Payment error:", error);
-            alert("An error occurred. Please try again.");
+            toast.error("An error occurred. Please try again.");
             setProcessingPlan(null);
         }
     };

@@ -34,14 +34,14 @@ export default function InterviewSessionPage() {
 
         // Initialize Speech Recognition
         if (typeof window !== 'undefined') {
-            const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
             if (SpeechRecognition) {
                 recognitionRef.current = new SpeechRecognition();
                 recognitionRef.current.continuous = true;
                 recognitionRef.current.interimResults = true;
                 recognitionRef.current.lang = 'en-US';
 
-                recognitionRef.current.onresult = (event: any) => {
+                recognitionRef.current.onresult = (event: SpeechRecognitionEvent) => {
                     let interimTranscript = '';
                     let finalTranscript = '';
 
@@ -66,9 +66,10 @@ export default function InterviewSessionPage() {
                     }
                 };
 
-                recognitionRef.current.onerror = (event: any) => {
+                recognitionRef.current.onerror = (event: SpeechRecognitionErrorEvent) => {
                     console.error("Speech recognition error", event.error);
                     setIsListening(false);
+                    // toast.error("Microphone error. Please check permissions."); // Optional: Add toast here
                 };
 
                 recognitionRef.current.onend = () => {
@@ -329,9 +330,15 @@ export default function InterviewSessionPage() {
                     <Button
                         onClick={handleSubmitAnswer}
                         size="lg"
-                        className="w-full h-14 text-lg font-semibold bg-gray-100 text-gray-400 hover:bg-gray-200 hover:text-gray-600 rounded-xl shadow-none"
+                        disabled={isListening}
+                        className={cn(
+                            "w-full h-14 text-lg font-semibold rounded-xl shadow-none transition-all duration-200",
+                            isListening
+                                ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                                : "bg-gray-100 text-gray-600 hover:bg-violet-600 hover:text-white hover:shadow-lg"
+                        )}
                     >
-                        {currentQuestionIndex < questions.length - 1 ? "Next Question" : "Finish Interview"}
+                        {isListening ? "Stop Listening to Continue" : (currentQuestionIndex < questions.length - 1 ? "Next Question" : "Finish Interview")}
                     </Button>
                 </div>
             </div>
