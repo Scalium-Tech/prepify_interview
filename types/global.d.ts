@@ -2,7 +2,7 @@ export { };
 
 declare global {
     interface Window {
-        Razorpay: any;
+
         SpeechRecognition: any;
         webkitSpeechRecognition: any;
     }

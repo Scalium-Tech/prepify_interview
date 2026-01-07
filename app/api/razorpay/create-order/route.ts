@@ -4,8 +4,8 @@ import { createClient } from "@supabase/supabase-js";
 
 // Pricing configuration (amounts in paise)
 const PRICING = {
-    monthly: { amount: 100, duration: 1 }, // ₹1 = 100 paise, 1 month
-    yearly: { amount: 200, duration: 12 }, // ₹2 = 200 paise, 12 months
+    monthly: { amount: 79900, duration: 1 }, // ₹799.00
+    yearly: { amount: 729900, duration: 12 }, // ₹7,299.00
 };
 
 export async function POST(request: NextRequest) {
@@ -57,6 +57,23 @@ export async function POST(request: NextRequest) {
             );
         }
 
+        // Idempotency: Check if user is already Pro
+        const { data: existingSub } = await supabaseAdmin
+            .from("subscriptions")
+            .select("status, expires_at")
+            .eq("user_id", userId)
+            .eq("status", "active")
+            .single();
+
+        if (existingSub) {
+            if (new Date(existingSub.expires_at) > new Date()) {
+                return NextResponse.json(
+                    { error: "You already have an active Pro subscription." },
+                    { status: 409 }
+                );
+            }
+        }
+
         const pricing = PRICING[billingCycle as keyof typeof PRICING];
 
         // Create Razorpay order
@@ -84,7 +101,7 @@ export async function POST(request: NextRequest) {
 
         console.log("Order created:", order.id);
 
-        // Create payment record in Supabase (optional - don't fail if this fails)
+        // Create payment record in Supabase
         try {
             await supabaseAdmin.from("payments").insert({
                 user_id: userId,

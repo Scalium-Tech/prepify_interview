@@ -6,14 +6,9 @@ import { useAuth } from "@/app/context/AuthContext";
 import { useSubscription } from "@/app/context/SubscriptionContext";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import { Check, X, Sparkles, Crown, Loader2 } from "lucide-react";
-import { toast } from "sonner"; // Assuming sonner is used as per project convention linked in Resume component
-
-declare global {
-    interface Window {
-        Razorpay: any;
-    }
-}
+import { Check, X, Sparkles, Crown, Loader2, X as CloseIcon } from "lucide-react";
+import { useRazorpayPayment } from "@/hooks/useRazorpayPayment";
+import { toast } from "sonner";
 
 interface PlanFeature {
     text: string;
@@ -40,41 +35,36 @@ const PRO_FEATURES: PlanFeature[] = [
 ];
 
 const PRO_PRICING = {
-    monthly: { amount: 100, display: "1", period: "/month", billingCycle: "monthly" as const },
-    yearly: { amount: 200, display: "2", period: "/year", billingCycle: "yearly" as const },
+    monthly: { amount: 79900, display: "799", period: "/month", billingCycle: "monthly" as const },
+    yearly: { amount: 729900, display: "7,299", period: "/year", billingCycle: "yearly" as const },
 };
 
 export default function PricingPage() {
     const router = useRouter();
     const { user, loading: authLoading } = useAuth();
-    const { isPro, loading: subLoading, interviewsTaken } = useSubscription();
+    const { isPro, loading: subLoading, interviewsTaken, refreshSubscription } = useSubscription();
     const [isYearly, setIsYearly] = useState(false);
-    const [processingPlan, setProcessingPlan] = useState<string | null>(null);
     const [showPopup, setShowPopup] = useState(false);
+
+    const { buyPro, isLoading: isPaymentLoading } = useRazorpayPayment({
+        userId: user?.id || "",
+        email: user?.email || "",
+        onSuccess: () => {
+            refreshSubscription();
+            router.push("/dashboard?payment=success");
+        },
+        onError: (msg) => {
+            console.error("Payment failed:", msg);
+            // Toast is handled in hook
+        }
+    });
 
     useEffect(() => {
         if (!subLoading && !isPro && interviewsTaken > 0) {
             setShowPopup(true);
-            const timer = setTimeout(() => {
-                setShowPopup(false);
-            }, 2000);
-            return () => clearTimeout(timer);
+            // Auto-close removed as per requirements
         }
     }, [subLoading, isPro, interviewsTaken]);
-
-    const loadRazorpayScript = (): Promise<boolean> => {
-        return new Promise((resolve) => {
-            if (window.Razorpay) {
-                resolve(true);
-                return;
-            }
-            const script = document.createElement("script");
-            script.src = "https://checkout.razorpay.com/v1/checkout.js";
-            script.onload = () => resolve(true);
-            script.onerror = () => resolve(false);
-            document.body.appendChild(script);
-        });
-    };
 
     const handleFreePlan = () => {
         router.push("/interview-setup");
@@ -87,88 +77,12 @@ export default function PricingPage() {
         }
 
         if (isPro) {
+            // Already Pro, maybe redirect to billing settings or just dashboard
             router.push("/dashboard");
             return;
         }
 
-        const selectedPricing = isYearly ? PRO_PRICING.yearly : PRO_PRICING.monthly;
-        setProcessingPlan("pro");
-
-        try {
-            const scriptLoaded = await loadRazorpayScript();
-            if (!scriptLoaded) {
-                toast.error("Failed to load payment gateway. Please try again.");
-                setProcessingPlan(null);
-                return;
-            }
-
-            const orderResponse = await fetch("/api/razorpay/create-order", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    billingCycle: selectedPricing.billingCycle,
-                    userId: user.id,
-                }),
-            });
-
-            const orderData = await orderResponse.json();
-
-            if (!orderData.orderId) {
-                toast.error(orderData.error || "Failed to create order. Please try again.");
-                setProcessingPlan(null);
-                return;
-            }
-
-            const options = {
-                key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
-                amount: orderData.amount,
-                currency: orderData.currency,
-                name: "Preply",
-                description: `Pro Plan - ${isYearly ? "Yearly" : "Monthly"}`,
-                order_id: orderData.orderId,
-                handler: async (response: any) => {
-                    const verifyResponse = await fetch("/api/razorpay/verify-payment", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({
-                            razorpay_order_id: response.razorpay_order_id,
-                            razorpay_payment_id: response.razorpay_payment_id,
-                            razorpay_signature: response.razorpay_signature,
-                            userId: user.id,
-                            billingCycle: selectedPricing.billingCycle,
-                        }),
-                    });
-
-                    const verifyData = await verifyResponse.json();
-
-                    if (verifyData.success) {
-                        toast.success("Payment successful! Welcome to Pro.");
-                        router.push("/dashboard?payment=success");
-                    } else {
-                        toast.error("Payment verification failed. Please contact support.");
-                    }
-                    setProcessingPlan(null);
-                },
-                prefill: {
-                    email: user.email,
-                },
-                theme: {
-                    color: "#7c3aed",
-                },
-                modal: {
-                    ondismiss: () => {
-                        setProcessingPlan(null);
-                    },
-                },
-            };
-
-            const razorpay = new window.Razorpay(options);
-            razorpay.open();
-        } catch (error) {
-            console.error("Payment error:", error);
-            toast.error("An error occurred. Please try again.");
-            setProcessingPlan(null);
-        }
+        await buyPro(isYearly);
     };
 
     if (authLoading || subLoading) {
@@ -186,13 +100,25 @@ export default function PricingPage() {
             {/* Pop-up for Free users who have completed an interview */}
             {showPopup && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm animate-in fade-in duration-300">
-                    <div className="bg-white px-8 py-6 rounded-2xl shadow-2xl flex flex-col items-center gap-4 animate-in zoom-in-95 duration-300 border-2 border-violet-100">
+                    <div className="relative bg-white px-8 py-6 rounded-2xl shadow-2xl flex flex-col items-center gap-4 animate-in zoom-in-95 duration-300 border-2 border-violet-100 max-w-sm w-full mx-4">
+                        <button
+                            onClick={() => setShowPopup(false)}
+                            className="absolute top-2 right-2 p-1 text-gray-400 hover:text-gray-600 transition-colors"
+                        >
+                            <CloseIcon className="w-5 h-5" />
+                        </button>
                         <div className="w-12 h-12 bg-violet-100 rounded-full flex items-center justify-center">
                             <Crown className="w-6 h-6 text-violet-600" />
                         </div>
                         <div className="text-center">
                             <h3 className="text-xl font-bold text-gray-900 mb-1">Get the Paid Version</h3>
-                            <p className="text-gray-500 text-sm">Unlock unlimited potential</p>
+                            <p className="text-gray-500 text-sm mb-4">Unlock unlimited potential</p>
+                            <button
+                                onClick={() => setShowPopup(false)}
+                                className="text-sm text-violet-600 font-medium hover:text-violet-700 hover:underline"
+                            >
+                                Maybe Later
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -311,16 +237,16 @@ export default function PricingPage() {
                         {/* CTA Button */}
                         <button
                             onClick={handleProPlan}
-                            disabled={processingPlan !== null}
+                            disabled={isPaymentLoading}
                             className="w-full py-4 px-6 rounded-xl font-semibold text-white bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 shadow-lg hover:shadow-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                         >
-                            {processingPlan === "pro" ? (
+                            {isPaymentLoading ? (
                                 <>
                                     <Loader2 className="w-5 h-5 animate-spin" />
                                     Processing...
                                 </>
                             ) : isPro ? (
-                                "Current Plan"
+                                "Extend Plan"
                             ) : (
                                 "Upgrade to Pro"
                             )}

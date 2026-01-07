@@ -37,8 +37,6 @@ export async function POST(request: NextRequest) {
             razorpay_order_id,
             razorpay_payment_id,
             razorpay_signature,
-            userId,
-            billingCycle,
         } = await request.json();
 
         // Verify signature
@@ -55,9 +53,40 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // Calculate expiry date
-        const durationMonths = DURATION_MONTHS[billingCycle] || 1;
-        const expiresAt = new Date();
+        // Fetch trusted order details from DB
+        const { data: paymentRecord, error: paymentError } = await supabaseAdmin
+            .from("payments")
+            .select("billing_cycle, user_id")
+            .eq("razorpay_order_id", razorpay_order_id)
+            .single();
+
+        if (paymentError || !paymentRecord) {
+            console.error("Error fetching payment record:", paymentError);
+            return NextResponse.json(
+                { error: "Payment record not found" },
+                { status: 404 }
+            );
+        }
+
+        const { billing_cycle, user_id } = paymentRecord;
+        const durationMonths = DURATION_MONTHS[billing_cycle] || 1;
+
+        // Fetch current subscription to handle extensions
+        const { data: currentSubscription } = await supabaseAdmin
+            .from("subscriptions")
+            .select("expires_at, status")
+            .eq("user_id", user_id)
+            .single();
+
+        // Calculate new expiry date
+        let baseDate = new Date(); // Start from "now" by default
+
+        // If user has an active subscription that expires in the future, extend from that date
+        if (currentSubscription?.expires_at && new Date(currentSubscription.expires_at) > baseDate) {
+            baseDate = new Date(currentSubscription.expires_at);
+        }
+
+        const expiresAt = new Date(baseDate);
         expiresAt.setMonth(expiresAt.getMonth() + durationMonths);
 
         // Update payment record
@@ -70,14 +99,14 @@ export async function POST(request: NextRequest) {
             })
             .eq("razorpay_order_id", razorpay_order_id);
 
-        // Upsert subscription (update if exists, insert if not)
+        // Upsert subscription
         const { error: subscriptionError } = await supabaseAdmin
             .from("subscriptions")
             .upsert(
                 {
-                    user_id: userId,
+                    user_id: user_id,
                     plan: "pro",
-                    billing_cycle: billingCycle,
+                    billing_cycle: billing_cycle,
                     status: "active",
                     started_at: new Date().toISOString(),
                     expires_at: expiresAt.toISOString(),
